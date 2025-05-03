@@ -65,4 +65,3 @@ export default function TaskTabs({ activeTab, setActiveTab }: TaskTabsProps) {
     </div>
   )
 }
-

@@ -1,0 +1,17 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Task {
+  id                String   @id @default(uuid())
+  internshipName    String
+  applicationLink   String?
+  deadline          String
+  applicationStatus String
+  resultStatus      String
+}

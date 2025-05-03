@@ -1,44 +1,102 @@
 "use client"
-import type { Task } from "./task-manager"
+import { useState } from "react"
+import type { Task } from "@/lib/task-service"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, ExternalLink } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
+import { Trash2, AlertCircle, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 type TaskTableProps = {
   tasks: Task[]
   deleteTask: (id: string) => void
   updateTask: (task: Task) => void
+  isMobile: boolean
 }
 
-export default function TaskTable({ tasks, deleteTask, updateTask }: TaskTableProps) {
+export default function TaskTable({ tasks, deleteTask, updateTask, isMobile }: TaskTableProps) {
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
+  const [isUpdating, setIsUpdating] = useState<string | null>(null)
+  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({})
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const toggleTaskExpansion = (taskId: string) => {
+    setExpandedTasks((prev) => ({
+      ...prev,
+      [taskId]: !prev[taskId],
+    }))
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "Low":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border dark:border-blue-800"
+      case "Medium":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border dark:border-yellow-800"
+      case "High":
+        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border dark:border-orange-800"
+      case "Urgent":
+        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border dark:border-red-800"
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border dark:border-gray-600"
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Not Started":
-      case "Rejected":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border dark:border-red-800"
-      case "Pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border dark:border-yellow-800"
+      case "To Do":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border dark:border-gray-600"
+      case "In Progress":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border dark:border-blue-800"
       case "Completed":
-      case "Selected":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border dark:border-green-800"
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border dark:border-gray-600"
     }
   }
 
-  const getStatusBgColor = (status: string) => {
-    switch (status) {
-      case "Not Started":
-      case "Rejected":
-        return "bg-red-500"
-      case "Pending":
-        return "bg-yellow-500"
-      case "Completed":
-      case "Selected":
-        return "bg-green-500"
-      default:
-        return "bg-gray-500"
+  const handleStatusChange = async (task: Task, value: "To Do" | "In Progress" | "Completed") => {
+    setIsUpdating(task.id)
+    try {
+      await updateTask({
+        ...task,
+        status: value,
+      })
+    } finally {
+      setIsUpdating(null)
+    }
+  }
+
+  const handlePriorityChange = async (task: Task, value: "Low" | "Medium" | "High" | "Urgent") => {
+    setIsUpdating(task.id)
+    try {
+      await updateTask({
+        ...task,
+        priority: value,
+      })
+    } finally {
+      setIsUpdating(null)
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!taskToDelete) return
+
+    setIsDeleting(true)
+    try {
+      await deleteTask(taskToDelete.id)
+    } finally {
+      setIsDeleting(false)
+      setTaskToDelete(null)
     }
   }
 
@@ -60,157 +118,175 @@ export default function TaskTable({ tasks, deleteTask, updateTask }: TaskTablePr
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             ></path>
           </svg>
-          <p className="mb-2 dark:text-gray-300">No internship applications found</p>
-          <p className="text-sm dark:text-gray-400">Add your first one using the button above!</p>
+          <p className="mb-2 dark:text-gray-300">No tasks found</p>
+          <p className="text-sm dark:text-gray-400">Add your first task using the button above!</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="overflow-x-auto pb-4 rounded-lg border dark:border-gray-700 shadow-sm">
-      <table className="min-w-full border-collapse">
-        <thead>
-          <tr className="bg-gray-100 dark:bg-gray-700">
-            <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap dark:text-gray-300">
-              Internship
-            </th>
-            <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap dark:text-gray-300">
-              Link
-            </th>
-            <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap dark:text-gray-300">
-              Deadline
-            </th>
-            <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap dark:text-gray-300">
-              App Status
-            </th>
-            <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap dark:text-gray-300">
-              Result
-            </th>
-            <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap dark:text-gray-300">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-          <AnimatePresence>
-            {tasks.map((task) => (
-              <motion.tr
-                key={task.id}
-                className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, height: 0, overflow: "hidden" }}
-                transition={{ duration: 0.3 }}
-                layout
-              >
-                <td className="py-2 px-3 text-sm font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                  {task.internshipName}
-                </td>
-                <td className="py-2 px-3 text-sm text-gray-500 whitespace-nowrap dark:text-gray-400">
-                  {task.applicationLink ? (
-                    <a
-                      href={task.applicationLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline flex items-center dark:text-blue-400"
-                    >
-                      <span className="mr-1">Link</span>
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-                <td className="py-2 px-3 text-sm text-gray-500 whitespace-nowrap dark:text-gray-400">
-                  {task.deadline}
-                </td>
-                <td className="py-2 px-3 text-sm whitespace-nowrap">
-                  <Select
-                    value={task.applicationStatus}
-                    onValueChange={(value: "Not Started" | "Pending" | "Completed") => {
-                      updateTask({
-                        ...task,
-                        applicationStatus: value,
-                      })
-                    }}
-                  >
-                    <SelectTrigger className={`w-28 h-7 text-xs ${getStatusColor(task.applicationStatus)}`}>
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent className="dark:bg-gray-800 dark:border-gray-600">
-                      <SelectItem value="Not Started" className="text-red-600 font-medium dark:text-red-300">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                          Not Started
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="Pending" className="text-yellow-600 font-medium dark:text-yellow-300">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></div>
-                          Pending
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="Completed" className="text-green-600 font-medium dark:text-green-300">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                          Completed
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="py-2 px-3 text-sm whitespace-nowrap">
-                  <Select
-                    value={task.resultStatus}
-                    onValueChange={(value: "Selected" | "Rejected" | "Pending") => {
-                      updateTask({
-                        ...task,
-                        resultStatus: value,
-                      })
-                    }}
-                  >
-                    <SelectTrigger className={`w-28 h-7 text-xs ${getStatusColor(task.resultStatus)}`}>
-                      <SelectValue placeholder="Result" />
-                    </SelectTrigger>
-                    <SelectContent className="dark:bg-gray-800 dark:border-gray-600">
-                      <SelectItem value="Pending" className="text-yellow-600 font-medium dark:text-yellow-300">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></div>
-                          Pending
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="Selected" className="text-green-600 font-medium dark:text-green-300">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                          Selected
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="Rejected" className="text-red-600 font-medium dark:text-red-300">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                          Rejected
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="py-2 px-3 text-sm whitespace-nowrap">
+    <>
+      <div className="space-y-4">
+        {tasks.map((task) => (
+          <Collapsible
+            key={task.id}
+            open={expandedTasks[task.id]}
+            onOpenChange={() => toggleTaskExpansion(task.id)}
+            className="border dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800"
+          >
+            <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+              <div className="flex-1">
+                <h3 className="font-medium text-gray-900 dark:text-white">{task.title}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Due: {task.dueDate}</p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 items-center">
+                <Select
+                  value={task.status}
+                  onValueChange={(value: "To Do" | "In Progress" | "Completed") => handleStatusChange(task, value)}
+                  disabled={isUpdating === task.id}
+                >
+                  <SelectTrigger className={`w-28 h-8 text-xs ${getStatusColor(task.status)}`}>
+                    <SelectValue placeholder="Status" />
+                    {isUpdating === task.id && (
+                      <span className="ml-2 h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    )}
+                  </SelectTrigger>
+                  <SelectContent className="dark:bg-gray-800 dark:border-gray-600">
+                    <SelectItem value="To Do" className="text-gray-600 font-medium dark:text-gray-300">
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-gray-500 mr-2"></div>
+                        To Do
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="In Progress" className="text-blue-600 font-medium dark:text-blue-300">
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
+                        In Progress
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Completed" className="text-green-600 font-medium dark:text-green-300">
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                        Completed
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={task.priority}
+                  onValueChange={(value: "Low" | "Medium" | "High" | "Urgent") => handlePriorityChange(task, value)}
+                  disabled={isUpdating === task.id}
+                >
+                  <SelectTrigger className={`w-28 h-8 text-xs ${getPriorityColor(task.priority)}`}>
+                    <SelectValue placeholder="Priority" />
+                    {isUpdating === task.id && (
+                      <span className="ml-2 h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    )}
+                  </SelectTrigger>
+                  <SelectContent className="dark:bg-gray-800 dark:border-gray-600">
+                    <SelectItem value="Low" className="text-blue-600 font-medium dark:text-blue-300">
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
+                        Low
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Medium" className="text-yellow-600 font-medium dark:text-yellow-300">
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></div>
+                        Medium
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="High" className="text-orange-600 font-medium dark:text-orange-300">
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-orange-500 mr-2"></div>
+                        High
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Urgent" className="text-red-600 font-medium dark:text-red-300">
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                        Urgent
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => deleteTask(task.id)}
+                    onClick={() => setTaskToDelete(task)}
                     className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                </td>
-              </motion.tr>
-            ))}
-          </AnimatePresence>
-        </tbody>
-      </table>
-    </div>
+
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-gray-500">
+                      {expandedTasks[task.id] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+              </div>
+            </div>
+
+            <CollapsibleContent>
+              <div className="px-4 pb-4 border-t dark:border-gray-700 pt-3">
+                <div className="text-sm text-gray-700 dark:text-gray-300">
+                  {task.description ? (
+                    <div>
+                      <h4 className="font-medium mb-1">Description:</h4>
+                      <p className="whitespace-pre-line">{task.description}</p>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400 italic">No description for this task.</p>
+                  )}
+                  {task.category && (
+                    <div className="mt-2">
+                      <h4 className="font-medium mb-1">Category:</h4>
+                      <p>{task.category}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        ))}
+      </div>
+
+      <AlertDialog open={!!taskToDelete} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              Delete Task
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{taskToDelete?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-500 hover:bg-red-600"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
-
